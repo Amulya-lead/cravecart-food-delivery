@@ -64,4 +64,4 @@ const MenuItemCard = ({ item, quantity = 0, onAdd, onRemove }: MenuItemCardProps
   );
 };
 
-export default MenuItemCard;
+export default MenuItemCard
