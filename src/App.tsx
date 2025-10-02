@@ -8,6 +8,7 @@ import Restaurants from "./pages/Restaurants";
 import RestaurantDetail from "./pages/RestaurantDetail";
 import Cart from "./pages/Cart";
 import NotFound from "./pages/NotFound";
+import LoginForm from "./pages/LoginForm"; // Assuming this is your CraveCartLogin page
 
 const queryClient = new QueryClient();
 
@@ -18,7 +19,12 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
+          {/* Change 1: Make LoginForm the default route */}
+          <Route path="/" element={<LoginForm />} />
+
+          {/* Change 2: Create a new route for the main page */}
+          <Route path="/home" element={<Index />} />
+          
           <Route path="/restaurants" element={<Restaurants />} />
           <Route path="/restaurant/:id" element={<RestaurantDetail />} />
           <Route path="/cart" element={<Cart />} />
