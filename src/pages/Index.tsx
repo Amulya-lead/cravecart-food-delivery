@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import RestaurantCard from "@/components/RestaurantCard";
 import { useCartStore } from "@/lib/cartStore";
 import { Badge } from "@/components/ui/badge";
+import { fetchNearbyRestaurants } from "@/lib/places"; // import the JS module
 
-// A skeleton component for the loading state to improve UX
 const RestaurantCardSkeleton = () => (
   <div className="bg-white rounded-2xl shadow-lg overflow-hidden animate-pulse">
     <div className="w-full h-48 bg-gray-300"></div>
@@ -20,7 +20,6 @@ const RestaurantCardSkeleton = () => (
   </div>
 );
 
-
 const Index = () => {
   const totalItems = useCartStore((state) => state.getTotalItems());
   const [restaurants, setRestaurants] = useState([]);
@@ -29,83 +28,63 @@ const Index = () => {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchNearbyRestaurants = async (latitude, longitude) => {
+    const getRestaurants = async (lat, lon) => {
+      setIsLoading(true);
+      setError(null);
       try {
-        // Call your secure serverless function, not the Google API directly
-        const response = await fetch(`/.netlify/functions/places?lat=${latitude}&lng=${longitude}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch restaurants. Please try again later.');
-        }
-        const data = await response.json();
-        
-        // Sort by rating to find the "featured" ones
-        const sortedByRating = [...data].sort((a, b) => b.rating - a.rating);
-        
+        const data = await fetchNearbyRestaurants(lat, lon);
+        const featured = data.slice(0, 3); // top 3 featured
         setRestaurants(data);
-        setFeaturedRestaurants(sortedByRating.slice(0, 3)); // Feature the top 3
+        setFeaturedRestaurants(featured);
       } catch (err) {
-        setError(err.message);
+        setError("Failed to fetch restaurants. Try again later.");
+        console.error(err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    const getLocation = () => {
-      if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-          (position) => {
-            fetchNearbyRestaurants(position.coords.latitude, position.coords.longitude);
-          },
-          () => {
-            setError("Unable to retrieve your location. Please enable location services.");
-            setIsLoading(false);
-            // Fallback: Fetch from a default location (e.g., Hyderabad)
-            fetchNearbyRestaurants(17.3850, 78.4867);
-          }
-        );
-      } else {
-        setError("Geolocation is not supported by this browser.");
-        setIsLoading(false);
-      }
-    };
-
-    getLocation();
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => getRestaurants(pos.coords.latitude, pos.coords.longitude),
+        () => getRestaurants(17.3850, 78.4867) // fallback: Hyderabad
+      );
+    } else {
+      getRestaurants(17.3850, 78.4867);
+    }
   }, []);
 
   return (
     <div className="min-h-screen bg-gray-50">
       <Header cartItemCount={totalItems} />
       <Hero />
-      
-      {/* Dynamic Restaurant Sections */}
-      <main className="container mx-auto px-4 py-12">
-        {error && <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg">{error}</div>}
 
-        {/* Featured Restaurants Section */}
+      <main className="container mx-auto px-4 py-12">
+        {error && (
+          <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg mb-8">{error}</div>
+        )}
+
+        {/* Featured Restaurants */}
         <section className="mb-16">
           <h2 className="text-3xl font-bold mb-6">Featured Restaurants</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {isLoading
               ? Array.from({ length: 3 }).map((_, i) => <RestaurantCardSkeleton key={i} />)
-              : featuredRestaurants.map((restaurant) => (
-                  <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-                ))}
+              : featuredRestaurants.map((r) => <RestaurantCard key={r.id} restaurant={r} />)}
           </div>
         </section>
 
-        {/* All Restaurants Section */}
+        {/* All Nearby Restaurants */}
         <section>
           <h2 className="text-3xl font-bold mb-6">Restaurants Near You</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {isLoading
               ? Array.from({ length: 6 }).map((_, i) => <RestaurantCardSkeleton key={i} />)
-              : restaurants.map((restaurant) => (
-                  <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-                ))}
+              : restaurants.map((r) => <RestaurantCard key={r.id} restaurant={r} />)}
           </div>
-          { !isLoading && restaurants.length === 0 && !error &&
-             <p className="text-center col-span-full text-gray-500">No restaurants found nearby.</p>
-          }
+          {!isLoading && restaurants.length === 0 && !error && (
+            <p className="text-center text-gray-500">No restaurants found nearby.</p>
+          )}
         </section>
       </main>
 
