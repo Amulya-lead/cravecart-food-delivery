@@ -1,84 +1,78 @@
 import { create } from 'zustand';
-import { MenuItem } from './mockData';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { toast } from 'sonner';
 
-interface CartItem extends MenuItem {
+export interface CartItem {
+  id: string;
+  name: string;
+  price: number;
   quantity: number;
+  imageUrl?: string;
 }
 
-interface CartStore {
+interface CartState {
   items: CartItem[];
-  addItem: (item: MenuItem) => void;
+  addItem: (item: Omit<CartItem, 'quantity'>) => void;
   removeItem: (itemId: string) => void;
-  updateQuantity: (itemId: string, quantity: number) => void;
   clearCart: () => void;
-  getTotalPrice: () => number;
   getTotalItems: () => number;
+  getCartTotal: () => number;
 }
 
-export const useCartStore = create<CartStore>((set, get) => ({
-  items: [],
-  
-  addItem: (item) => {
-    set((state) => {
-      const existingItem = state.items.find((i) => i.id === item.id);
+export const useCartStore = create<CartState>()(
+  persist(
+    (set, get) => ({
+      items: [],
+
+      addItem: (itemToAdd) => {
+        const { items } = get();
+        const existingItem = items.find((item) => item.id === itemToAdd.id);
+
+        if (existingItem) {
+          const updatedItems = items.map((item) =>
+            item.id === itemToAdd.id ? { ...item, quantity: item.quantity + 1 } : item
+          );
+          set({ items: updatedItems });
+        } else {
+          set({ items: [...items, { ...itemToAdd, quantity: 1 }] });
+        }
+        toast.success(`${itemToAdd.name} added to cart!`);
+      },
       
-      if (existingItem) {
-        return {
-          items: state.items.map((i) =>
-            i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i
-          ),
-        };
-      }
-      
-      return {
-        items: [...state.items, { ...item, quantity: 1 }],
-      };
-    });
-  },
-  
-  removeItem: (itemId) => {
-    set((state) => {
-      const existingItem = state.items.find((i) => i.id === itemId);
-      
-      if (existingItem && existingItem.quantity > 1) {
-        return {
-          items: state.items.map((i) =>
-            i.id === itemId ? { ...i, quantity: i.quantity - 1 } : i
-          ),
-        };
-      }
-      
-      return {
-        items: state.items.filter((i) => i.id !== itemId),
-      };
-    });
-  },
-  
-  updateQuantity: (itemId, quantity) => {
-    set((state) => {
-      if (quantity <= 0) {
-        return {
-          items: state.items.filter((i) => i.id !== itemId),
-        };
-      }
-      
-      return {
-        items: state.items.map((i) =>
-          i.id === itemId ? { ...i, quantity } : i
-        ),
-      };
-    });
-  },
-  
-  clearCart: () => set({ items: [] }),
-  
-  getTotalPrice: () => {
-    const { items } = get();
-    return items.reduce((total, item) => total + item.price * item.quantity, 0);
-  },
-  
-  getTotalItems: () => {
-    const { items } = get();
-    return items.reduce((total, item) => total + item.quantity, 0);
-  },
-}));
+      removeItem: (itemId) => {
+        const { items } = get();
+        const existingItem = items.find((item) => item.id === itemId);
+
+        if (existingItem && existingItem.quantity > 1) {
+          const updatedItems = items.map((item) =>
+            item.id === itemId ? { ...item, quantity: item.quantity - 1 } : item
+          );
+          set({ items: updatedItems });
+        } else {
+          set({ items: items.filter((item) => item.id !== itemId) });
+        }
+        toast.info(`Item removed from cart.`);
+      },
+
+      clearCart: () => {
+        set({ items: [] });
+        toast.warning("Cart has been cleared.");
+      },
+
+      getTotalItems: () => {
+        const { items } = get();
+        return items.reduce((total, item) => total + item.quantity, 0);
+      },
+
+      getCartTotal: () => {
+        const { items } = get();
+        return items.reduce((total, item) => total + item.price * item.quantity, 0);
+      },
+    }),
+    {
+      name: 'cart-storage', // Name for the localStorage key
+      storage: createJSONStorage(() => localStorage), // Use localStorage for persistence
+    }
+  )
+);
+

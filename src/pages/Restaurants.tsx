@@ -1,94 +1,86 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
-import RestaurantCard from "@/components/RestaurantCard";
-import { restaurants, cuisines } from "@/lib/mockData";
 import { useCartStore } from "@/lib/cartStore";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Filter } from "lucide-react";
+import { Card, CardContent, CardTitle } from "@/components/ui/card";
+import { Link } from "react-router-dom";
+import { Star } from "lucide-react";
+
+interface Restaurant {
+  id: string;
+  name: string;
+  cuisine: string;
+  image: string;
+  rating: number;
+  delivery_time: string;
+  delivery_fee: number;
+  latitude: number;
+  longitude: number;
+}
 
 const Restaurants = () => {
   const totalItems = useCartStore((state) => state.getTotalItems());
-  const [selectedCuisine, setSelectedCuisine] = useState<string>("all");
-  const [sortBy, setSortBy] = useState<string>("rating");
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const filteredRestaurants = restaurants
-    .filter((r) => selectedCuisine === "all" || r.cuisine === selectedCuisine)
-    .sort((a, b) => {
-      if (sortBy === "rating") return b.rating - a.rating;
-      if (sortBy === "deliveryTime") {
-        const aTime = parseInt(a.deliveryTime.split("-")[0]);
-        const bTime = parseInt(b.deliveryTime.split("-")[0]);
-        return aTime - bTime;
-      }
-      if (sortBy === "deliveryFee") return a.deliveryFee - b.deliveryFee;
-      return 0;
+  // Get user's location
+  useEffect(() => {
+    navigator.geolocation.getCurrentPosition(async (position) => {
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+
+      // Fetch nearby restaurants from Supabase
+      const { data, error } = await supabase
+        .from("restaurants")
+        .select("*")
+        .gte("latitude", userLat - 0.05)
+        .lte("latitude", userLat + 0.05)
+        .gte("longitude", userLng - 0.05)
+        .lte("longitude", userLng + 0.05);
+
+      if (error) console.error(error);
+      else setRestaurants(data || []);
+      setLoading(false);
     });
+  }, []);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-muted/30">
       <Header cartItemCount={totalItems} />
-      
+
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold mb-8">Restaurants Near You</h1>
-        
-        {/* Filters */}
-        <div className="flex flex-wrap gap-4 mb-8 p-4 bg-card rounded-lg shadow-card">
-          <div className="flex items-center gap-2">
-            <Filter className="h-5 w-5 text-muted-foreground" />
-            <span className="font-medium">Filters:</span>
-          </div>
-          
-          <Select value={selectedCuisine} onValueChange={setSelectedCuisine}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Cuisine" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Cuisines</SelectItem>
-              {cuisines.map((cuisine) => (
-                <SelectItem key={cuisine} value={cuisine}>
-                  {cuisine}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+        <h1 className="text-4xl font-bold mb-8">Nearby Restaurants</h1>
 
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Sort by" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="rating">Highest Rated</SelectItem>
-              <SelectItem value="deliveryTime">Fastest Delivery</SelectItem>
-              <SelectItem value="deliveryFee">Lowest Fee</SelectItem>
-            </SelectContent>
-          </Select>
-          
-          {(selectedCuisine !== "all" || sortBy !== "rating") && (
-            <Button
-              variant="ghost"
-              onClick={() => {
-                setSelectedCuisine("all");
-                setSortBy("rating");
-              }}
-            >
-              Clear Filters
-            </Button>
-          )}
-        </div>
-
-        {/* Restaurant Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredRestaurants.map((restaurant) => (
-            <RestaurantCard key={restaurant.id} restaurant={restaurant} />
-          ))}
-        </div>
-
-        {filteredRestaurants.length === 0 && (
-          <div className="text-center py-20">
-            <p className="text-xl text-muted-foreground">
-              No restaurants found matching your filters.
-            </p>
+        {loading ? (
+          <p>Loading restaurants...</p>
+        ) : restaurants.length === 0 ? (
+          <p>No restaurants found near your location.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {restaurants.map((restaurant) => (
+              <Link key={restaurant.id} to={`/restaurant/${restaurant.id}`}>
+                <Card className="hover:shadow-lg transition-shadow duration-200">
+                  <img
+                    src={restaurant.image}
+                    alt={restaurant.name}
+                    className="w-full h-48 object-cover rounded-t-lg"
+                  />
+                  <CardContent>
+                    <CardTitle className="text-lg font-bold">{restaurant.name}</CardTitle>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-muted-foreground">{restaurant.cuisine}</span>
+                      <div className="flex items-center gap-1">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span>{restaurant.rating}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      {restaurant.delivery_time} | ${restaurant.delivery_fee} delivery
+                    </p>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
           </div>
         )}
       </div>
