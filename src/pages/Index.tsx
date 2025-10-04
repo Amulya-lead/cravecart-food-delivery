@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from "react";
 import Header from "@/components/Header";
 import Hero from "@/components/Hero";
 import RestaurantCard from "@/components/RestaurantCard";
 import { useCartStore } from "@/lib/cartStore";
 import { Badge } from "@/components/ui/badge";
-import { fetchNearbyRestaurants } from "@/lib/places"; // import the JS module
+import { fetchNearbyRestaurants } from "@/lib/places"; // Your location-based API
 
 const RestaurantCardSkeleton = () => (
   <div className="bg-white rounded-2xl shadow-lg overflow-hidden animate-pulse">
@@ -26,17 +25,28 @@ const Index = () => {
   const [restaurants, setRestaurants] = useState([]);
   const [featuredRestaurants, setFeaturedRestaurants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const getRestaurants = async (lat, lon) => {
+    const cachedRestaurants = localStorage.getItem("nearbyRestaurants");
+
+    if (cachedRestaurants) {
+      const data = JSON.parse(cachedRestaurants);
+      setRestaurants(data);
+      setFeaturedRestaurants(data.slice(0, 3));
+      setIsLoading(false);
+      return;
+    }
+
+    const getRestaurants = async (lat: number, lon: number) => {
       setIsLoading(true);
       setError(null);
+
       try {
         const data = await fetchNearbyRestaurants(lat, lon);
-        const featured = data.slice(0, 3); // top 3 featured
         setRestaurants(data);
-        setFeaturedRestaurants(featured);
+        setFeaturedRestaurants(data.slice(0, 3));
+        localStorage.setItem("nearbyRestaurants", JSON.stringify(data));
       } catch (err) {
         setError("Failed to fetch restaurants. Try again later.");
         console.error(err);
@@ -62,7 +72,9 @@ const Index = () => {
 
       <main className="container mx-auto px-4 py-12">
         {error && (
-          <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg mb-8">{error}</div>
+          <div className="text-center text-red-500 bg-red-100 p-4 rounded-lg mb-8">
+            {error}
+          </div>
         )}
 
         {/* Featured Restaurants */}
