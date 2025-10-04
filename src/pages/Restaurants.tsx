@@ -23,20 +23,21 @@ const Restaurants = () => {
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Get user's location
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(async (position) => {
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
 
-      // Fetch nearby restaurants from Supabase
+      // Approx 5km radius ~ 0.045 degrees latitude/longitude
+      const radius = 0.045;
+
       const { data, error } = await supabase
         .from("restaurants")
         .select("*")
-        .gte("latitude", userLat - 0.05)
-        .lte("latitude", userLat + 0.05)
-        .gte("longitude", userLng - 0.05)
-        .lte("longitude", userLng + 0.05);
+        .gte("latitude", userLat - radius)
+        .lte("latitude", userLat + radius)
+        .gte("longitude", userLng - radius)
+        .lte("longitude", userLng + radius);
 
       if (error) console.error(error);
       else setRestaurants(data || []);
@@ -47,10 +48,8 @@ const Restaurants = () => {
   return (
     <div className="min-h-screen bg-muted/30">
       <Header cartItemCount={totalItems} />
-
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-4xl font-bold mb-8">Nearby Restaurants</h1>
-
         {loading ? (
           <p>Loading restaurants...</p>
         ) : restaurants.length === 0 ? (

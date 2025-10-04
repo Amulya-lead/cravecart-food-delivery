@@ -1,48 +1,87 @@
+import { useEffect, useState } from "react";
+import { useParams, Link } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
 import Header from "@/components/Header";
 import MenuItemCard from "@/components/MenuItemCard";
 import { useCartStore } from "@/lib/cartStore";
 import { Star, Clock, DollarSign, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Link } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
+interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  image: string;
+  category: string;
+}
+
+interface Restaurant {
+  id: string;
+  name: string;
+  cuisine: string;
+  image: string;
+  rating: number;
+  delivery_time: string;
+  delivery_fee: number;
+}
+
 const RestaurantDetail = () => {
+  const { id } = useParams();
   const totalItems = useCartStore((state) => state.getTotalItems());
   const items = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
   const removeItem = useCartStore((state) => state.removeItem);
 
-  // Angaara Restaurant info (static)
-  const restaurant = {
-    id: "3da974dc-0bdb-492f-bf29-8ea2e4476d1b",
-    name: "Angaara Restaurant",
-    cuisine: "chinese;barbecue;curry;fried_food;kebab;noodle;soup",
-    image: "https://source.unsplash.com/800x600/?restaurant,chinese",
-    rating: 4.5,
-    deliveryTime: "30-40 min",
-    deliveryFee: 3.0,
-    featured: true,
-  };
+  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Menu Items (static)
-  const restaurantMenu = [
-    { id: "1", restaurantId: restaurant.id, name: "Chicken Tikka", price: 8.99, image: "https://laurenscravings.com/wp-content/uploads/2025/04/chicken-tikka-marinade-scaled.jpg", category: "barbecue" },
-    { id: "2", restaurantId: restaurant.id, name: "Paneer Butter Masala", price: 7.5, image: "https://source.unsplash.com/400x300/?paneer,curry", category: "curry" },
-    { id: "3", restaurantId: restaurant.id, name: "Fried Rice", price: 6.5, image: "https://source.unsplash.com/400x300/?fried,rice", category: "fried_food" },
-  ];
+  useEffect(() => {
+    const fetchRestaurantData = async () => {
+      const { data: restaurantData, error: restError } = await supabase
+        .from("restaurants")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-  const categories = [...new Set(restaurantMenu.map((item) => item.category))];
+      if (restError || !restaurantData) {
+        toast.error("Restaurant not found");
+        setLoading(false);
+        return;
+      }
 
-  const handleAddItem = (item: any) => {
+      setRestaurant(restaurantData);
+
+      const { data: menuData, error: menuError } = await supabase
+        .from("menu_items")
+        .select("*")
+        .eq("restaurant_id", id);
+
+      if (menuError) console.error(menuError);
+      else setMenuItems(menuData || []);
+
+      setLoading(false);
+    };
+
+    fetchRestaurantData();
+  }, [id]);
+
+  const handleAddItem = (item: MenuItem) => {
     addItem(item);
     toast.success(`Added ${item.name} to cart`);
   };
 
-  const handleRemoveItem = (item: any) => {
+  const handleRemoveItem = (item: MenuItem) => {
     removeItem(item.id);
     toast.info(`Removed ${item.name} from cart`);
   };
+
+  if (loading) return <p>Loading...</p>;
+  if (!restaurant) return <p>Restaurant not found.</p>;
+
+  const categories = [...new Set(menuItems.map((item) => item.category))];
 
   return (
     <div className="min-h-screen">
@@ -55,7 +94,7 @@ const RestaurantDetail = () => {
       </div>
 
       <div className="container mx-auto px-4 -mt-20 relative z-10">
-        <Link to="/">
+        <Link to="/restaurants">
           <Button variant="ghost" className="mb-4">
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back
@@ -74,15 +113,15 @@ const RestaurantDetail = () => {
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <Clock className="h-5 w-5" />
-                  <span>{restaurant.deliveryTime}</span>
+                  <span>{restaurant.delivery_time}</span>
                 </div>
                 <div className="flex items-center gap-1 text-muted-foreground">
                   <DollarSign className="h-5 w-5" />
-                  <span>${restaurant.deliveryFee} delivery fee</span>
+                  <span>${restaurant.delivery_fee} delivery fee</span>
                 </div>
               </div>
             </div>
-            {restaurant.featured && <Badge className="bg-accent text-lg px-4 py-2">Featured</Badge>}
+            <Badge className="bg-accent text-lg px-4 py-2">Featured</Badge>
           </div>
         </div>
 
@@ -93,7 +132,7 @@ const RestaurantDetail = () => {
             <div key={category} className="mb-10">
               <h3 className="text-2xl font-semibold mb-4 text-primary">{category}</h3>
               <div className="space-y-4">
-                {restaurantMenu
+                {menuItems
                   .filter((item) => item.category === category)
                   .map((item) => {
                     const cartItem = items.find((i) => i.id === item.id);
