@@ -1,88 +1,61 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import Header from "@/components/Header";
-import { useCartStore } from "@/lib/cartStore";
-import { Card, CardContent, CardTitle } from "@/components/ui/card";
-import { Link } from "react-router-dom";
-import { Star } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface Restaurant {
   id: string;
   name: string;
-  cuisine: string;
-  image: string;
-  rating: number;
-  delivery_time: string;
-  delivery_fee: number;
-  latitude: number;
-  longitude: number;
+  cuisine?: string;
 }
 
 const Restaurants = () => {
-  const totalItems = useCartStore((state) => state.getTotalItems());
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    navigator.geolocation.getCurrentPosition(async (position) => {
-      const userLat = position.coords.latitude;
-      const userLng = position.coords.longitude;
-
-      // Approx 5km radius ~ 0.045 degrees latitude/longitude
-      const radius = 0.045;
-
+    const fetchRestaurants = async () => {
+      setLoading(true);
       const { data, error } = await supabase
         .from("restaurants")
-        .select("*")
-        .gte("latitude", userLat - radius)
-        .lte("latitude", userLat + radius)
-        .gte("longitude", userLng - radius)
-        .lte("longitude", userLng + radius);
+        .select("*");
 
-      if (error) console.error(error);
-      else setRestaurants(data || []);
+      if (error) {
+        console.error("Error fetching restaurants:", error.message);
+        setLoading(false);
+        return;
+      }
+
+      // Remove duplicates based on id
+      const uniqueRestaurants = data.filter(
+        (v, i, a) => a.findIndex((t) => t.id === v.id) === i
+      );
+
+      setRestaurants(uniqueRestaurants);
       setLoading(false);
-    });
+    };
+
+    fetchRestaurants();
   }, []);
 
+  if (loading) return <p className="text-center mt-10">Loading restaurants...</p>;
+
+  if (restaurants.length === 0)
+    return <p className="text-center mt-10">No restaurants found.</p>;
+
   return (
-    <div className="min-h-screen bg-muted/30">
-      <Header cartItemCount={totalItems} />
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-4xl font-bold mb-8">Nearby Restaurants</h1>
-        {loading ? (
-          <p>Loading restaurants...</p>
-        ) : restaurants.length === 0 ? (
-          <p>No restaurants found near your location.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {restaurants.map((restaurant) => (
-              <Link key={restaurant.id} to={`/restaurant/${restaurant.id}`}>
-                <Card className="hover:shadow-lg transition-shadow duration-200">
-                  <img
-                    src={restaurant.image}
-                    alt={restaurant.name}
-                    className="w-full h-48 object-cover rounded-t-lg"
-                  />
-                  <CardContent>
-                    <CardTitle className="text-lg font-bold">{restaurant.name}</CardTitle>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-muted-foreground">{restaurant.cuisine}</span>
-                      <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                        <span>{restaurant.rating}</span>
-                      </div>
-                    </div>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      {restaurant.delivery_time} | ${restaurant.delivery_fee} delivery
-                    </p>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="container mx-auto px-4 py-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {restaurants.map((restaurant) => (
+        <Card key={restaurant.id} className="hover:shadow-lg transition-shadow">
+          <CardHeader>
+            <CardTitle>{restaurant.name}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-muted-foreground">
+              {restaurant.cuisine ? restaurant.cuisine.replace(/;/g, ", ") : "Not specified"}
+            </p>
+          </CardContent>
+        </Card>
+      ))}
     </div>
   );
 };
