@@ -6,7 +6,7 @@ import  Restaurant  from "@/pages/Restaurants";
 import { Link } from "react-router-dom";
 
 interface RestaurantCardProps {
-  restaurant: Restaurant;
+  restaurant: typeof Restaurant;
 }
 
 const RestaurantCard = ({ restaurant }: RestaurantCardProps) => {
