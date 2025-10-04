@@ -10,6 +10,7 @@ import Index from "./pages/Index";
 import Restaurants from "./pages/Restaurants";
 import RestaurantDetail from "./pages/RestaurantDetail";
 import Cart from "./pages/Cart";
+import CheckoutSuccess from "./pages/CheckoutSuccess";
 import NotFound from "./pages/NotFound";
 import LoginForm from "./pages/LoginForm";
 
@@ -24,7 +25,6 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/" element={<LoginForm />} />
-
             <Route
               path="/home"
               element={
@@ -54,6 +54,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Cart />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/checkout-success"
+              element={
+                <ProtectedRoute>
+                  <CheckoutSuccess />
                 </ProtectedRoute>
               }
             />
