@@ -2,7 +2,7 @@
 import { Star, Clock, DollarSign } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Restaurant } from "@/lib/mockData";
+import  Restaurant  from "@/pages/Restaurants";
 import { Link } from "react-router-dom";
 
 interface RestaurantCardProps {
